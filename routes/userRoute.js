@@ -8,16 +8,31 @@ const { body, validationResult } = require("express-validator");
 router.post(
   "/register",
   [
-    body("name").isLength({ min: 1, max: 255 }).withMessage("Name is required and max 255 chars"),
-    body("email").isEmail().withMessage("Valid email is required").normalizeEmail(),
-    body("password").isLength({ min: 6 }).withMessage("Password must be at least 6 chars"),
-    body("role").optional().isIn(["user", "admin"]).withMessage("Invalid role"),
-    body("phone").optional().isMobilePhone().withMessage("Valid phone number required"),
+    body("name")
+      .isLength({ min: 1, max: 255 })
+      .withMessage("Name is required and max 255 chars"),
+    body("email")
+      .isEmail()
+      .withMessage("Valid email is required")
+      .normalizeEmail(),
+    body("password")
+      .isLength({ min: 6 })
+      .withMessage("Password must be at least 6 chars"),
+    body("role")
+      .optional()
+      .isIn(["customer", "admin", "delivery"])
+      .withMessage("Invalid role"),
+    body("phone")
+      .optional()
+      .isMobilePhone()
+      .withMessage("Valid phone number required"),
   ],
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ error: "Validation failed", details: errors.array() });
+      return res
+        .status(400)
+        .json({ error: "Validation failed", details: errors.array() });
     }
     next();
   },
@@ -28,19 +43,22 @@ router.post(
 router.post(
   "/signin",
   [
-    body("email").isEmail().withMessage("Valid email is required").normalizeEmail(),
+    body("email")
+      .isEmail()
+      .withMessage("Valid email is required")
+      .normalizeEmail(),
     body("password").notEmpty().withMessage("Password is required"),
   ],
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ error: "Validation failed", details: errors.array() });
+      return res
+        .status(400)
+        .json({ error: "Validation failed", details: errors.array() });
     }
     next();
   },
   signIn
 );
-
-
 
 module.exports = router;

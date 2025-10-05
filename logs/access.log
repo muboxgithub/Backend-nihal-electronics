@@ -1,0 +1,2 @@
+::1 - - [05/Oct/2025:06:51:16 +0000] "GET /test-categ HTTP/1.1" 200 2 "-" "PostmanRuntime/7.39.1"
+::1 - - [05/Oct/2025:06:51:45 +0000] "GET /test-categ HTTP/1.1" 200 107 "-" "PostmanRuntime/7.39.1"
