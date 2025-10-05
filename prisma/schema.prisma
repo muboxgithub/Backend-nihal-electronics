@@ -1,0 +1,332 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- ENUMS ----------
+enum Users_role_enum {
+  admin
+  secretary
+  customer
+  delivery
+}
+
+enum Addresses_address_type_enum {
+  shipping
+  billing
+}
+
+enum Orders_status_enum {
+  pending
+  paid
+  processing
+  shipped
+  delivered
+  cancelled
+}
+
+enum Payments_method_enum {
+  card
+  mobile_money
+  cash
+  bank_transfer
+}
+
+enum Payments_status_enum {
+  pending
+  completed
+  failed
+}
+
+enum Deliveries_status_enum {
+  assigned
+  in_progress
+  out_for_delivery
+  delivered
+  failed
+}
+
+enum DeliveryTracking_status_enum {
+  assigned
+  in_transit
+  at_facility
+  out_for_delivery
+  delivered
+  failed
+}
+
+enum Notifications_type_enum {
+  order
+  payment
+  delivery
+  system
+}
+
+enum Notifications_channel_enum {
+  email
+  sms
+  both
+  push
+}
+
+enum Products_badge_type_enum {
+  hot_deal
+  best_seller
+  new_arrival
+  featured
+}
+
+// ---------- MODELS ----------
+model Users {
+  user_id       String          @id @default(uuid())
+  name          String
+  email         String          @unique
+  password_hash String?
+  role          Users_role_enum @default(customer) // Set default to customer
+  phone         String?
+  provider      String?
+  socialId      String?         @unique
+  created_at    DateTime        @default(now())
+  updated_at    DateTime        @updatedAt
+
+  addresses     Addresses[]
+  orders        Orders[]
+  deliveries    Deliveries[]    @relation("DeliveryStaff")
+  notifications Notifications[]
+  ratings       Ratings[]
+  views         Views[]
+  lovedProducts LovedProducts[]
+}
+
+model Addresses {
+  address_id    String                      @id @default(uuid())
+  user_id       String
+  address_line1 String
+  address_line2 String?
+  city          String
+  state         String?
+  postal_code   String
+  country       String
+  is_default    Boolean                     @default(false)
+  address_type  Addresses_address_type_enum
+  created_at    DateTime                    @default(now())
+
+  user   Users    @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  orders Orders[]
+}
+
+model Categories {
+  category_id String   @id @default(uuid())
+  name        String
+  description String?
+  created_at  DateTime @default(now())
+
+  products Products[]
+}
+
+model Products {
+  product_id          String                    @id @default(uuid())
+  name                String
+  description         String?
+  price               Decimal
+  original_price      Decimal?
+  discount_percentage Decimal?
+  stock               Int
+  category_id         String?
+  brand               String?
+  is_featured         Boolean                   @default(false)
+  badge_type          Products_badge_type_enum?
+  average_rating      Decimal?                  @default(0.0)
+  review_count        Int?                      @default(0)
+  created_at          DateTime                  @default(now())
+  updated_at          DateTime                  @updatedAt
+
+  category Categories? @relation(fields: [category_id], references: [category_id], onDelete: Restrict)
+
+  orderItems    OrderItems[]
+  ratings       Ratings[]
+  views         Views[]
+  lovedProducts LovedProducts[]
+  images        ProductImages[]
+}
+
+model ProductImages {
+  image_id   String   @id @default(uuid())
+  product_id String
+  url        String // store image URL (local path or cloud storage link)
+  alt_text   String? // alternative text for accessibility
+  is_primary Boolean  @default(false)
+  created_at DateTime @default(now())
+
+  // Relations
+  product Products @relation(fields: [product_id], references: [product_id], onDelete: Cascade)
+}
+
+model Orders {
+  order_id           String             @id @default(uuid())
+  user_id            String
+  address_id         String
+  shipping_method_id String?
+  order_date         DateTime           @default(now())
+  status             Orders_status_enum
+  total_amount       Decimal
+  created_at         DateTime           @default(now())
+  updated_at         DateTime           @updatedAt
+
+  user           Users            @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  address        Addresses        @relation(fields: [address_id], references: [address_id], onDelete: Restrict)
+  shippingMethod ShippingMethods? @relation(fields: [shipping_method_id], references: [shipping_method_id], onDelete: SetNull)
+  items          OrderItems[]
+  payments       Payments[]
+  deliveries     Deliveries[]
+}
+
+model OrderItems {
+  order_item_id String   @id @default(uuid())
+  order_id      String
+  product_id    String
+  quantity      Int
+  price         Decimal
+  discount      Decimal  @default(0.00)
+  created_at    DateTime @default(now())
+
+  order   Orders   @relation(fields: [order_id], references: [order_id], onDelete: Cascade)
+  product Products @relation(fields: [product_id], references: [product_id], onDelete: Restrict)
+}
+
+model Payments {
+  payment_id     String               @id @default(uuid())
+  order_id       String
+  payment_date   DateTime             @default(now())
+  amount         Decimal
+  method         Payments_method_enum
+  status         Payments_status_enum
+  transaction_id String?
+  created_at     DateTime             @default(now())
+
+  order        Orders        @relation(fields: [order_id], references: [order_id], onDelete: Cascade)
+  bankPayments BankPayments?
+}
+
+model BankPayments {
+  bank_payment_id String    @id @default(uuid())
+  payment_id      String    @unique
+  bank_name       String
+  account_number  String
+  receipt_url     String?
+  verified        Boolean   @default(false)
+  verified_at     DateTime?
+  notes           String?
+
+  payment Payments @relation(fields: [payment_id], references: [payment_id], onDelete: Cascade)
+}
+
+model ShippingMethods {
+  shipping_method_id String   @id @default(uuid())
+  name               String
+  cost               Decimal
+  estimated_days     Int
+  created_at         DateTime @default(now())
+
+  orders Orders[]
+}
+
+model Deliveries {
+  delivery_id             String                 @id @default(uuid())
+  order_id                String
+  delivery_staff_id       String?
+  tracking_number         String?                @unique
+  assigned_date           DateTime               @default(now())
+  delivery_date           DateTime?
+  estimated_delivery_date DateTime?
+  status                  Deliveries_status_enum
+  notes                   String?
+  created_at              DateTime               @default(now())
+  updated_at              DateTime               @updatedAt
+
+  order          Orders             @relation(fields: [order_id], references: [order_id], onDelete: Cascade)
+  delivery_staff Users?             @relation("DeliveryStaff", fields: [delivery_staff_id], references: [user_id], onDelete: SetNull)
+  tracking       DeliveryTracking[]
+}
+
+model DeliveryTracking {
+  tracking_id String                       @id @default(uuid())
+  delivery_id String
+  status      DeliveryTracking_status_enum
+  location    String?
+  update_time DateTime                     @default(now())
+  notes       String?
+  created_at  DateTime                     @default(now())
+
+  delivery Deliveries @relation(fields: [delivery_id], references: [delivery_id], onDelete: Cascade)
+}
+
+model Notifications {
+  notification_id String                     @id @default(uuid())
+  user_id         String
+  message         String
+  type            Notifications_type_enum
+  channel         Notifications_channel_enum @default(email)
+  is_read         Boolean                    @default(false)
+  created_at      DateTime                   @default(now())
+
+  user Users              @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  logs NotificationLogs[]
+}
+
+model NotificationLogs {
+  log_id          String   @id @default(uuid())
+  notification_id String
+  sent_at         DateTime @default(now())
+  delivered       Boolean  @default(false)
+  failed_reason   String?
+
+  notification Notifications @relation(fields: [notification_id], references: [notification_id], onDelete: Cascade)
+}
+
+model Ratings {
+  rating_id  String   @id @default(uuid())
+  user_id    String
+  product_id String
+  rating     Int
+  review     String?
+  created_at DateTime @default(now())
+
+  user    Users    @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  product Products @relation(fields: [product_id], references: [product_id], onDelete: Cascade)
+
+  @@unique([user_id, product_id]) //one ating per user per product
+}
+
+model Views {
+  view_id    String   @id @default(uuid())
+  user_id    String
+  product_id String
+  viewed_at  DateTime @default(now())
+
+  user    Users    @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  product Products @relation(fields: [product_id], references: [product_id], onDelete: Cascade)
+}
+
+model LovedProducts {
+  loved_id   String   @id @default(uuid())
+  user_id    String
+  product_id String
+  created_at DateTime @default(now())
+
+  user    Users    @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  product Products @relation(fields: [product_id], references: [product_id], onDelete: Cascade)
+
+  @@unique([user_id, product_id]) //one love per user per product
+}
